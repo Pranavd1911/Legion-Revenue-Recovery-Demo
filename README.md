@@ -17,6 +17,27 @@ npm run dev
 
 Open `http://localhost:3000`.
 
+## GitHub Pages Deployment
+
+This repo is configured to deploy using GitHub Pages only.
+
+1. Push to the `main` branch.
+2. In GitHub, open **Settings → Pages**.
+3. Under **Build and deployment**, set **Source** to **GitHub Actions**.
+4. Open the **Actions** tab and run or wait for **Deploy to GitHub Pages**.
+
+The workflow builds a static Next.js export from `out/` and deploys it to:
+
+```text
+https://pranavd1911.github.io/<repo-name>/
+```
+
+For the current repo, the expected URL is:
+
+```text
+https://pranavd1911.github.io/Legion-Revenue-Recovery-Demo/
+```
+
 ## Main Screens
 
 - Overview dashboard with KPIs, charts, recovery highlights, and activity feed
