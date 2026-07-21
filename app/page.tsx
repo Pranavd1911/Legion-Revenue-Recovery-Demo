@@ -822,6 +822,15 @@ function PanelText({ items }: { items: string[] }) {
 
 function Escalation() {
   const [resolved, setResolved] = useState(false);
+  const [handoffMessage, setHandoffMessage] = useState("");
+  function handleEscalationAction(action: string) {
+    if (action === "Mark resolved") {
+      setResolved(true);
+      setHandoffMessage("Escalation marked resolved. Audit trail preserved.");
+      return;
+    }
+    setHandoffMessage(`${action} recorded for Nurse Coordinator follow-up.`);
+  }
   return (
     <Card className="mt-5 border-rose-100 p-5">
       <PageTitle title="Human Escalation Scenario" subtitle="The AI refuses to diagnose or treat medical concerns and routes urgent clinical messages to staff." />
@@ -832,8 +841,8 @@ function Escalation() {
         ]} />
         <div>
           {["Clinical concern detected", "AI response restricted", "Priority: Urgent", "Escalated to: Nurse Coordinator", "Response SLA: Under 5 minutes", "Staff notification sent", "AI automation paused", "Customer advised to seek urgent care for severe symptoms"].map((item) => <div key={item} className="mb-3 flex items-center gap-2 rounded-md bg-rose-50 p-3 text-sm text-rose-800"><AlertTriangle className="h-4 w-4" />{item}</div>)}
-          <div className="mt-4 grid grid-cols-2 gap-2">{["Accept handoff", "Assign staff member", "Call customer", "Send secure response", "Mark resolved"].map((action) => <Button key={action} variant={action === "Mark resolved" ? "primary" : "secondary"} onClick={() => action === "Mark resolved" && setResolved(true)}>{action}</Button>)}</div>
-          {resolved && <p className="mt-3 rounded-md bg-emerald-50 p-3 text-sm font-medium text-emerald-800">Escalation marked resolved. Audit trail preserved.</p>}
+          <div className="mt-4 grid grid-cols-2 gap-2">{["Accept handoff", "Assign staff member", "Call customer", "Send secure response", "Mark resolved"].map((action) => <Button key={action} variant={action === "Mark resolved" ? "primary" : "secondary"} onClick={() => handleEscalationAction(action)}>{action}</Button>)}</div>
+          {handoffMessage && <p className={`mt-3 rounded-md p-3 text-sm font-medium ${resolved ? "bg-emerald-50 text-emerald-800" : "bg-indigo-50 text-indigo-800"}`}>{handoffMessage}</p>}
           <Section title="Escalation Audit Timeline"><PanelText items={["9:03 AM Clinical concern detected", "9:03 AM AI automation paused", "9:04 AM Nurse Coordinator notified", "9:05 AM Staff handoff accepted"]} /></Section>
         </div>
       </div>
@@ -843,11 +852,27 @@ function Escalation() {
 
 function Appointments({ notify }: { notify: (m: string) => void }) {
   const [selected, setSelected] = useState(appointments[0]);
+  const [providerFilter, setProviderFilter] = useState("All providers");
+  const [treatmentFilter, setTreatmentFilter] = useState("All treatments");
+  const [locationFilter, setLocationFilter] = useState("All locations");
+  const visibleAppointments = appointments.filter((apt) => {
+    const providerMatch = providerFilter === "All providers" || apt.provider === providerFilter;
+    const treatmentMatch = treatmentFilter === "All treatments" || apt.treatment === treatmentFilter;
+    const locationMatch = locationFilter === "All locations" || apt.location === locationFilter;
+    return providerMatch && treatmentMatch && locationMatch;
+  });
+
+  useEffect(() => {
+    if (visibleAppointments.length > 0 && !visibleAppointments.some((apt) => apt.id === selected.id)) {
+      setSelected(visibleAppointments[0]);
+    }
+  }, [selected.id, visibleAppointments]);
+
   return (
     <>
       <PageTitle title="Appointment Scheduling" subtitle="Calendar operations for AI-booked, staff-booked, and manually entered consultations." action={<Button onClick={() => notify("New consultation slot created.")}><Plus className="h-4 w-4" />Add slot</Button>} />
       <div className="grid gap-5 xl:grid-cols-[1.4fr_.8fr]">
-        <Card className="p-5"><div className="mb-4 flex flex-wrap gap-3"><Select value="All providers" onChange={() => null} options={["All providers", ...providers]} /><Select value="All treatments" onChange={() => null} options={["All treatments", ...treatments]} /><Select value="All locations" onChange={() => null} options={locations} /></div><div className="grid gap-3 md:grid-cols-2">{appointments.map((apt) => <button key={apt.id} onClick={() => setSelected(apt)} className="rounded-lg border border-line bg-white p-4 text-left transition hover:border-indigo-200 hover:shadow-sm"><div className="flex justify-between gap-3"><p className="font-semibold">{apt.customer}</p><Badge tone={toneForStatus(apt.status)}>{apt.status}</Badge></div><p className="mt-1 text-sm text-muted">{apt.time} · {apt.treatment}</p><p className="mt-2 text-xs text-muted">{apt.provider} · {apt.location} · {apt.source}</p></button>)}</div></Card>
+        <Card className="p-5"><div className="mb-4 flex flex-wrap gap-3"><Select value={providerFilter} onChange={setProviderFilter} options={["All providers", ...providers]} /><Select value={treatmentFilter} onChange={setTreatmentFilter} options={["All treatments", ...treatments]} /><Select value={locationFilter} onChange={setLocationFilter} options={locations} /></div><div className="grid gap-3 md:grid-cols-2">{visibleAppointments.length === 0 ? <div className="rounded-md bg-slate-50 p-4 text-sm text-muted">No appointments match these filters.</div> : visibleAppointments.map((apt) => <button key={apt.id} onClick={() => setSelected(apt)} className={`rounded-lg border bg-white p-4 text-left transition hover:border-indigo-200 hover:shadow-sm ${selected.id === apt.id ? "border-indigo-300 ring-2 ring-indigo-100" : "border-line"}`}><div className="flex justify-between gap-3"><p className="font-semibold">{apt.customer}</p><Badge tone={toneForStatus(apt.status)}>{apt.status}</Badge></div><p className="mt-1 text-sm text-muted">{apt.time} · {apt.treatment}</p><p className="mt-2 text-xs text-muted">{apt.provider} · {apt.location} · {apt.source}</p></button>)}</div></Card>
         <Card className="p-5"><h2 className="font-semibold">Appointment Details</h2><Section title={selected.customer}><p>{selected.treatment} consultation, estimated value {currency(selected.value)}.</p><p>{selected.provider} at {selected.location}</p></Section><Section title="Conversation Summary"><p>Lead accepted available consultation slot after Ava answered scheduling and treatment-fit questions.</p></Section><div className="mt-5 grid grid-cols-2 gap-2">{["Confirm", "Reschedule", "Cancel", "Assign provider", "Send reminder"].map((a) => <Button key={a} variant="secondary" onClick={() => notify(`${a} simulated for ${selected.customer}.`)}>{a}</Button>)}</div></Card>
       </div>
     </>
@@ -856,6 +881,8 @@ function Appointments({ notify }: { notify: (m: string) => void }) {
 
 function Workflows({ workflows, setWorkflows, notify }: { workflows: typeof seedWorkflows; setWorkflows: (w: typeof seedWorkflows) => void; notify: (m: string) => void }) {
   const [simulation, setSimulation] = useState<string[]>([]);
+  const [zoom, setZoom] = useState(75);
+  const [draftState, setDraftState] = useState("Draft changes available");
   const blocks = [
     ["Trigger", "Incoming call is missed"],
     ["Action", "Send SMS within 15 seconds"],
@@ -874,13 +901,14 @@ function Workflows({ workflows, setWorkflows, notify }: { workflows: typeof seed
       <PageTitle title="Recovery Workflows" subtitle="Automation for repetitive lead recovery, with staff notifications where human judgment is needed." />
       <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">{workflows.map((wf, i) => <Card key={wf.name} className="p-4"><div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold">{wf.name}</h2><p className="mt-1 text-xs text-muted">Owner: {["Operations", "Front Desk", "Ava AI", "Practice Manager"][i % 4]}</p></div><Badge tone={toneForStatus(wf.status)}>{wf.status}</Badge></div><div className="mt-4 grid grid-cols-2 gap-3 text-sm"><Info label="Leads enrolled" value={`${wf.enrolled}`} /><Info label="Conversion rate" value={wf.conversion} /><Info label="Revenue recovered" value={currency(wf.revenue)} /><Info label="Last modified" value={wf.modified} /></div><p className="mt-3 text-sm text-muted">Trigger: {wf.trigger}</p><p className="text-sm text-muted">Channels: {wf.channels}</p><Button className="mt-4" variant="secondary" onClick={() => { const copy = [...workflows]; copy[i] = { ...wf, status: wf.status === "Active" ? "Paused" : "Active" }; setWorkflows(copy); notify(`${wf.name} ${copy[i].status.toLowerCase()}.`); }}>{wf.status === "Active" ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}{wf.status === "Active" ? "Pause" : "Start"}</Button></Card>)}</div>
       <Card className="mt-5 p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">Missed Call Recovery Builder</h2><p className="mt-1 text-sm text-muted">Published v1.4 · Draft changes available · Simulation mode ready</p></div><div className="flex flex-wrap gap-2"><Button variant="secondary">75%</Button><Button variant="secondary">Fit to screen</Button><Button variant="secondary"><Plus className="h-4 w-4" />Add step</Button></div></div>
+        <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">Missed Call Recovery Builder</h2><p className="mt-1 text-sm text-muted">Published v1.4 · {draftState} · Simulation mode ready</p></div><div className="flex flex-wrap gap-2"><Button variant="secondary" onClick={() => { const next = zoom === 75 ? 100 : 75; setZoom(next); notify(`Workflow canvas zoom set to ${next}%.`); }}>{zoom}%</Button><Button variant="secondary" onClick={() => { setZoom(100); notify("Workflow canvas fit to screen."); }}>Fit to screen</Button><Button variant="secondary" onClick={() => { setDraftState("Unpublished step added"); notify("New workflow step block added to draft."); }}><Plus className="h-4 w-4" />Add step</Button></div></div>
         <div className="mt-5 overflow-x-auto rounded-lg border border-line bg-slate-50 p-5">
-          <div className="grid min-w-[760px] grid-cols-3 gap-4">
+          <div className="grid min-w-[760px] grid-cols-3 gap-4 transition-transform" style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center" }}>
             {blocks.map(([kind, label], i) => <div key={`${kind}-${label}`} className={`${kind === "YES" ? "col-start-1" : kind === "NO" ? "col-start-3" : "col-start-2"} rounded-lg border border-line bg-white p-4 text-center shadow-sm`}><Badge tone={kind === "Condition" ? "amber" : kind === "Trigger" ? "purple" : kind === "NO" ? "slate" : "blue"}>{kind}</Badge><p className="mt-3 text-sm font-semibold">{label}</p>{i < blocks.length - 1 && <ArrowRight className="mx-auto mt-3 h-4 w-4 rotate-90 text-muted" />}</div>)}
+            {draftState === "Unpublished step added" && <div className="col-start-2 rounded-lg border border-dashed border-indigo-300 bg-indigo-50 p-4 text-center shadow-sm"><Badge tone="purple">Draft</Badge><p className="mt-3 text-sm font-semibold">Review second follow-up timing</p></div>}
           </div>
         </div>
-        <div className="mt-5 flex flex-wrap gap-2"><Button onClick={() => { setSimulation(["0s Missed call captured", "12s SMS sent", "3m customer replied", "6m AI qualification complete", "7m consultation offered", "8m CRM updated"]); notify("Simulation complete: missed call recovered, qualified, and booked."); }}><Play className="h-4 w-4" />Test workflow</Button><Button variant="secondary">Version history</Button><Button variant="secondary">Publish draft</Button></div>
+        <div className="mt-5 flex flex-wrap gap-2"><Button onClick={() => { setSimulation(["0s Missed call captured", "12s SMS sent", "3m customer replied", "6m AI qualification complete", "7m consultation offered", "8m CRM updated"]); notify("Simulation complete: missed call recovered, qualified, and booked."); }}><Play className="h-4 w-4" />Test workflow</Button><Button variant="secondary" onClick={() => { setSimulation(["v1.4 Published missed-call workflow", "v1.3 Added AI callback fallback", "v1.2 Reduced SMS delay from 60s to 15s"]); notify("Version history loaded."); }}>Version history</Button><Button variant="secondary" onClick={() => { setDraftState("No unpublished changes"); notify("Workflow draft published."); }}>Publish draft</Button></div>
         {simulation.length > 0 && <div className="mt-4 rounded-md bg-ink p-4 text-sm text-white"><p className="mb-2 font-semibold">Simulation log</p>{simulation.map((line) => <p key={line} className="py-1 text-slate-200">{line}</p>)}</div>}
       </Card>
     </>
