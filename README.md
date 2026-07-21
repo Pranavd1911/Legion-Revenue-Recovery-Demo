@@ -19,20 +19,17 @@ Open `http://localhost:3000`.
 
 ## GitHub Pages Deployment
 
-This repo is configured to deploy using GitHub Pages only.
+This repo can be deployed using GitHub Pages only.
 
-1. Push to the `main` branch.
-2. In GitHub, open **Settings → Pages**.
-3. Under **Build and deployment**, set **Source** to **GitHub Actions**.
-4. Open the **Actions** tab and run or wait for **Deploy to GitHub Pages**.
+The project supports static export. Build with `GITHUB_PAGES=true`, then publish the generated `out/` folder to a `gh-pages` branch.
 
-The workflow builds a static Next.js export from `out/` and deploys it to:
+In GitHub, open **Settings → Pages** and set:
 
-```text
-https://pranavd1911.github.io/<repo-name>/
-```
+- Source: **Deploy from a branch**
+- Branch: **gh-pages**
+- Folder: **/(root)**
 
-For the current repo, the expected URL is:
+The expected URL is:
 
 ```text
 https://pranavd1911.github.io/Legion-Revenue-Recovery-Demo/
