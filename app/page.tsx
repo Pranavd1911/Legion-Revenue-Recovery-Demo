@@ -1017,13 +1017,120 @@ function IntegrationModal({ name, onClose, notify }: { name: string; onClose: ()
 
 function Onboarding({ notify }: { notify: (m: string) => void }) {
   const [step, setStep] = useState(1);
+  const [connectedChannels, setConnectedChannels] = useState(["Phone", "SMS", "Web chat"]);
+  const [calendarSync, setCalendarSync] = useState("Availability synced 14 minutes ago");
+  const [agentPreview, setAgentPreview] = useState("Ava is ready to qualify new inquiries, offer approved consultation slots, and escalate clinical concerns to staff.");
+  const [schedulingSystem, setSchedulingSystem] = useState("Boulevard");
+  const [calendarProvider, setCalendarProvider] = useState("Google Calendar");
+  const [agentRole, setAgentRole] = useState("AI receptionist");
   const steps = ["Business Profile", "Communication", "Calendar", "AI Agent", "Activation"];
+  const connectChannel = (channel: string) => {
+    setConnectedChannels((current) => current.includes(channel) ? current : [...current, channel]);
+    notify(`${channel} connected for revenue recovery.`);
+  };
+
+  const stepContent = {
+    1: (
+      <div className="grid gap-5 xl:grid-cols-[1fr_.75fr]">
+        <div className="grid gap-4 md:grid-cols-2">
+          {[
+            ["Business name", "Glow Aesthetics MedSpa"],
+            ["Primary market", "Austin, Texas"],
+            ["Primary phone", "(512) 555-0148"],
+            ["Timezone", "America/Chicago"],
+            ["Default workflow", "Missed Call Recovery"],
+            ["Front-desk owner", "Mia Rodriguez"]
+          ].map(([label, value]) => <label key={label} className="grid gap-1 text-sm font-medium">{label}<input className="h-10 rounded-md border border-line px-3 font-normal" defaultValue={value} /></label>)}
+          <label className="grid gap-1 text-sm font-medium md:col-span-2">Business hours<input className="h-10 rounded-md border border-line px-3 font-normal" defaultValue="Mon-Fri 9:00 AM-6:00 PM, Sat 10:00 AM-3:00 PM" /></label>
+        </div>
+        <div className="grid gap-3">
+          {["Downtown Austin", "North Austin"].map((location, i) => <div key={location} className="rounded-lg border border-line p-4"><div className="flex items-center justify-between gap-3"><h2 className="font-semibold">{location}</h2><Badge tone="green">Active</Badge></div><p className="mt-2 text-sm text-muted">{i === 0 ? "Flagship location with injectables, lasers, and consultations." : "Second location with skin, wellness, and follow-up visits."}</p><div className="mt-3 grid grid-cols-2 gap-2 text-sm"><Info label="Providers" value={`${i + 3}`} /><Info label="Rooms" value={`${i + 5}`} /></div></div>)}
+        </div>
+      </div>
+    ),
+    2: (
+      <div className="grid gap-5 xl:grid-cols-[1fr_.85fr]">
+        <div>
+          <h2 className="font-semibold">Communication Channels</h2>
+          <p className="mt-1 text-sm text-muted">Connect the places where missed inquiries arrive and where recovery messages should be sent.</p>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {[
+              ["Phone", "Capture missed calls and trigger SMS within 15 seconds.", Phone],
+              ["SMS", "Send compliant follow-ups and appointment reminders.", MessageCircle],
+              ["Web chat", "Recover pricing and treatment questions from the site.", Headphones],
+              ["Instagram DM", "Route social inquiries into the lead inbox.", Users],
+              ["Facebook Lead Ads", "Import new ad leads for instant qualification.", Target],
+              ["Email", "Create staff tasks for longer-form inquiries.", FileText]
+            ].map(([name, description, Icon]) => {
+              const ChannelIcon = Icon as typeof Phone;
+              const connected = connectedChannels.includes(name as string);
+              return <div key={name as string} className="rounded-lg border border-line p-4"><div className="flex items-start justify-between gap-3"><div className="flex gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-md bg-indigo-50 text-indigo-700"><ChannelIcon className="h-4 w-4" /></div><div><h3 className="font-semibold">{name as string}</h3><p className="mt-1 text-sm text-muted">{description as string}</p></div></div><Badge tone={connected ? "green" : "amber"}>{connected ? "Connected" : "Needs setup"}</Badge></div><Button className="mt-4" variant={connected ? "ghost" : "secondary"} onClick={() => connected ? notify(`${name as string} settings opened.`) : connectChannel(name as string)}>{connected ? "Manage" : "Connect"}</Button></div>;
+            })}
+          </div>
+        </div>
+        <div className="grid gap-4">
+          <label className="grid gap-1 text-sm font-medium">Recovery phone line<input className="h-10 rounded-md border border-line px-3 font-normal" defaultValue="+1 512 555 0148" /></label>
+          <label className="grid gap-1 text-sm font-medium">Staff forwarding number<input className="h-10 rounded-md border border-line px-3 font-normal" defaultValue="+1 512 555 0182" /></label>
+          <label className="grid gap-1 text-sm font-medium">SMS consent language<textarea className="h-24 rounded-md border border-line p-3 font-normal" defaultValue="Reply YES to receive appointment and consultation messages from Glow Aesthetics. Message frequency varies. Reply STOP to opt out." /></label>
+          <div className="rounded-lg bg-slate-50 p-4 text-sm"><h3 className="font-semibold">Routing rules</h3>{["After-hours inquiries go to Ava first.", "Clinical concern keywords notify staff immediately.", "Unanswered callbacks create a same-day staff task."].map((rule) => <label key={rule} className="mt-3 flex items-center gap-2"><input type="checkbox" defaultChecked className="h-4 w-4" />{rule}</label>)}</div>
+        </div>
+      </div>
+    ),
+    3: (
+      <div className="grid gap-5 xl:grid-cols-[.85fr_1fr]">
+        <div className="grid gap-4">
+          <label className="grid gap-1 text-sm font-medium">Scheduling system<Select value={schedulingSystem} onChange={(value) => { setSchedulingSystem(value); notify(`Scheduling system set to ${value}.`); }} options={["Boulevard", "Mindbody", "Acuity", "Zenoti", "Manual calendar"]} /></label>
+          <label className="grid gap-1 text-sm font-medium">Calendar provider<Select value={calendarProvider} onChange={(value) => { setCalendarProvider(value); notify(`Calendar provider set to ${value}.`); }} options={["Google Calendar", "Outlook Calendar", "iCloud Calendar"]} /></label>
+          <label className="grid gap-1 text-sm font-medium">Appointment buffer<input className="h-10 rounded-md border border-line px-3 font-normal" defaultValue="15 minutes before and after consultations" /></label>
+          <label className="grid gap-1 text-sm font-medium">Booking window<input className="h-10 rounded-md border border-line px-3 font-normal" defaultValue="Offer openings within the next 14 days" /></label>
+          <Button onClick={() => { setCalendarSync("Availability test passed just now"); notify("Calendar availability sync tested successfully."); }}><RefreshCcw className="h-4 w-4" />Test availability sync</Button>
+        </div>
+        <div className="grid gap-3">
+          <div className="rounded-lg bg-emerald-50 p-4 text-emerald-900"><div className="flex items-center gap-2 font-semibold"><CalendarCheck className="h-4 w-4" />{calendarSync}</div><p className="mt-2 text-sm">Ava can offer open consultation slots without double-booking providers or rooms.</p></div>
+          <div className="grid gap-3 md:grid-cols-2">{providers.slice(0, 4).map((provider, i) => <label key={provider} className="rounded-lg border border-line p-4 text-sm"><div className="flex items-center justify-between gap-3"><span className="font-semibold">{provider}</span><input type="checkbox" defaultChecked={i < 3} className="h-4 w-4" /></div><p className="mt-2 text-muted">{["Injectables", "Laser", "Skin consults", "Wellness"][i]} consultations</p></label>)}</div>
+          <div className="rounded-lg border border-line p-4"><h3 className="font-semibold">Slot rules</h3><div className="mt-3 grid gap-2 text-sm text-slate-700">{["Do not show same-day injectable slots after 4 PM.", "Keep rooms open for urgent staff callbacks.", "Prefer the closest location when a lead names a neighborhood."].map((rule) => <p key={rule} className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-600" />{rule}</p>)}</div></div>
+        </div>
+      </div>
+    ),
+    4: (
+      <div className="grid gap-5 xl:grid-cols-[1fr_.85fr]">
+        <div>
+          <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold">Ava AI Concierge</h2><p className="mt-1 text-sm text-muted">Configure the AI agent that qualifies leads, answers approved business questions, and hands clinical topics to people.</p></div><Badge tone="green">Ready</Badge></div>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <label className="grid gap-1 text-sm font-medium">Agent name<input className="h-10 rounded-md border border-line px-3 font-normal" defaultValue="Ava" /></label>
+            <label className="grid gap-1 text-sm font-medium">Primary role<Select value={agentRole} onChange={(value) => { setAgentRole(value); notify(`Ava role set to ${value}.`); }} options={["AI receptionist", "Booking concierge", "Lead qualifier"]} /></label>
+            <label className="grid gap-1 text-sm font-medium md:col-span-2">Opening message<textarea className="h-24 rounded-md border border-line p-3 font-normal" defaultValue="Hi, this is Ava with Glow Aesthetics. I can help answer general questions and find a consultation time with our team." /></label>
+          </div>
+          <h3 className="mt-5 font-semibold">Tone Controls</h3>
+          <div className="mt-3 grid gap-3 md:grid-cols-4">{["Warm", "Professional", "Concise", "Consultative"].map((tone, i) => <label key={tone} className="rounded-md border border-line p-3 text-sm"><span className="font-medium">{tone}</span><input aria-label={`${tone} tone`} type="range" min="0" max="100" defaultValue={[86, 92, 66, 78][i]} className="mt-3 w-full" /></label>)}</div>
+        </div>
+        <div className="grid gap-4">
+          <div className="rounded-lg border border-line p-4"><h3 className="font-semibold">Escalation rules</h3>{["Post-procedure symptoms or complications", "Medical diagnosis or treatment advice", "Pricing exceptions above staff limit", "Angry customer or cancellation threat", "Financing hardship or sensitive personal details"].map((rule) => <label key={rule} className="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" defaultChecked className="h-4 w-4" />{rule}</label>)}</div>
+          <div className="rounded-lg bg-indigo-50 p-4 text-indigo-950"><h3 className="font-semibold">Preview</h3><p className="mt-2 text-sm leading-6">{agentPreview}</p><Button className="mt-4" variant="secondary" onClick={() => { setAgentPreview("Sample reply: I can help with general pricing ranges and book a consultation so a licensed provider can recommend the right plan. Would tomorrow at 11:00 AM or 2:30 PM work?"); notify("Ava preview generated."); }}><Sparkles className="h-4 w-4" />Preview Ava</Button></div>
+          <div className="grid grid-cols-2 gap-3 text-sm"><Info label="Allowed actions" value="Qualify, book, remind" /><Info label="Human handoff" value="Clinical and urgent" /><Info label="Knowledge source" value="Approved FAQ" /><Info label="Confidence gate" value="90% minimum" /></div>
+        </div>
+      </div>
+    ),
+    5: (
+      <div className="grid gap-5 xl:grid-cols-[1fr_.75fr]">
+        <div className="rounded-lg bg-emerald-50 p-5 text-emerald-900"><h2 className="text-xl font-semibold">Your Legion Revenue Recovery Engine is ready.</h2><p className="mt-2 text-sm">All core onboarding areas have usable demo data and simulated connection states for a complete walkthrough.</p>{["Phone and SMS recovery configured", "Calendar availability synced", "AI agent configured with escalation rules", "Missed-call workflow active", "Analytics tracking enabled", "Staff handoff rules in place"].map((item) => <p key={item} className="mt-3 flex items-center gap-2"><CheckCircle2 className="h-4 w-4" />{item}</p>)}</div>
+        <div className="grid gap-3 text-sm">
+          <Info label="Go-live status" value="Demo-ready" />
+          <Info label="Connected channels" value={`${connectedChannels.length} active`} />
+          <Info label="Default workflow" value="Missed Call Recovery" />
+          <Info label="Activation owner" value="Mia Rodriguez" />
+          <Button onClick={() => notify("Activation checklist exported for stakeholder review.")}><FileText className="h-4 w-4" />Export checklist</Button>
+        </div>
+      </div>
+    )
+  };
+
   return (
     <>
       <PageTitle title="Settings and Onboarding" subtitle="Five-step setup for activating the revenue recovery engine at Glow Aesthetics." />
       <Card className="p-5">
-        <div className="mb-6 grid gap-2 md:grid-cols-5">{steps.map((s, i) => <button key={s} onClick={() => setStep(i + 1)} className={`rounded-md border p-3 text-sm font-medium ${step === i + 1 ? "border-indigo-500 bg-indigo-50 text-indigo-700" : "border-line bg-white"}`}>{i + 1}. {s}</button>)}</div>
-        {step < 5 ? <div className="grid gap-4 md:grid-cols-2">{["Business name", "Primary location", "Phone number", "SMS provider", "Scheduling system", "Default workflow"].map((f) => <label key={f} className="grid gap-1 text-sm font-medium">{f}<input className="h-10 rounded-md border border-line px-3 font-normal" defaultValue={f === "Business name" ? "Glow Aesthetics MedSpa" : ""} /></label>)}</div> : <div className="rounded-lg bg-emerald-50 p-5 text-emerald-900"><h2 className="text-xl font-semibold">Your Legion Revenue Recovery Engine is ready.</h2>{["Phone connected", "SMS connected", "Calendar connected", "AI agent configured", "Missed-call workflow active", "Analytics tracking enabled"].map((item) => <p key={item} className="mt-3 flex items-center gap-2"><CheckCircle2 className="h-4 w-4" />{item}</p>)}</div>}
+        <div className="mb-6 grid gap-2 md:grid-cols-5">{steps.map((s, i) => <button key={s} onClick={() => setStep(i + 1)} className={`rounded-md border p-3 text-left text-sm font-medium transition hover:border-indigo-300 hover:bg-indigo-50 ${step === i + 1 ? "border-indigo-500 bg-indigo-50 text-indigo-700" : "border-line bg-white"}`}><span className="block text-xs text-muted">Step {i + 1}</span>{s}</button>)}</div>
+        {stepContent[step as keyof typeof stepContent]}
         <div className="mt-6 flex justify-between"><Button variant="secondary" disabled={step === 1} onClick={() => setStep(step - 1)}>Back</Button><Button onClick={() => step === 5 ? notify("Activation summary confirmed.") : setStep(step + 1)}>{step === 5 ? "Finish" : "Continue"}<ArrowRight className="h-4 w-4" /></Button></div>
       </Card>
     </>
