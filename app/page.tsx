@@ -5,7 +5,7 @@ import { Badge, Button, Card, DataLabel, Modal, StatCard } from "@/components/ui
 import { analytics90, appointments, integrations, leads as seedLeads, locations, providers, revenueByChannel, sources, statuses, treatments, workflows as seedWorkflows, Lead, LeadStatus } from "@/lib/mock-data";
 import { currency } from "@/lib/utils";
 import { AlertTriangle, ArrowRight, Bot, CalendarCheck, Check, CheckCircle2, CircleDollarSign, Clock, DollarSign, ExternalLink, FileText, Filter, Headphones, MessageCircle, Pause, Phone, Play, Plus, RefreshCcw, Save, Send, Settings2, ShieldAlert, Sparkles, Target, TrendingUp, UserPlus, Users, Workflow, X, Zap } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 const palette = ["#4f46e5", "#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#64748b"];
@@ -551,6 +551,34 @@ function Select({ value, onChange, options }: { value: string; onChange: (v: str
 }
 
 function LeadDrawer({ lead, onClose, onStatus, notify }: { lead: Lead; onClose: () => void; onStatus: (id: number, status: LeadStatus) => void; notify: (m: string) => void }) {
+  function runAction(label: string) {
+    if (label === "Book Consultation") {
+      onStatus(lead.id, "Consultation Booked");
+      notify(`Consultation booked for ${lead.name}.`);
+      return;
+    }
+    if (label === "Assign Staff") {
+      onStatus(lead.id, "Needs Human Review");
+      notify(`${lead.name} assigned to front-desk staff.`);
+      return;
+    }
+    if (label === "Start Workflow") {
+      onStatus(lead.id, "Follow-Up");
+      notify(`Recovery workflow started for ${lead.name}.`);
+      return;
+    }
+    if (label === "Mark Converted") {
+      onStatus(lead.id, "Converted");
+      return;
+    }
+    if (label === "Close Lead") {
+      onStatus(lead.id, "Closed");
+      onClose();
+      return;
+    }
+    notify(`${label} action simulated for ${lead.name}.`);
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/25">
       <aside className="h-full w-full max-w-xl overflow-y-auto bg-white p-5 shadow-soft">
@@ -564,7 +592,13 @@ function LeadDrawer({ lead, onClose, onStatus, notify }: { lead: Lead; onClose: 
           <Info label="Estimated value" value={currency(lead.value)} />
           <LeadScorePanel lead={lead} />
         </div>
-        <Section title="Conversation History"><p>Customer inquiry captured from {lead.source}. Ava responded immediately, qualified intent, and recorded the next action for staff visibility.</p></Section>
+        <Section title="Conversation History">
+          <div className="grid gap-2">
+            <p className="rounded-md bg-slate-50 p-3">Customer inquiry captured from {lead.source}.</p>
+            <p className="rounded-md bg-indigo-50 p-3 text-indigo-950">Ava responded immediately, qualified intent, and recorded the next action for staff visibility.</p>
+            <p className="rounded-md bg-slate-50 p-3">{lead.summary}</p>
+          </div>
+        </Section>
         <Section title="AI-Generated Summary"><p>{lead.summary}</p></Section>
         <Section title="Qualification Details"><ul className="grid gap-2">{lead.qualification.map((q) => <li key={q} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 text-emerald-600" />{q}</li>)}</ul></Section>
         <Section title="Appointment and Follow-Up"><p>{lead.appointment}</p><p className="mt-2 text-muted">{lead.followUp}</p></Section>
@@ -572,7 +606,7 @@ function LeadDrawer({ lead, onClose, onStatus, notify }: { lead: Lead; onClose: 
         <Section title="Human Handoff History"><p>{lead.handoff}</p></Section>
         <div className="sticky bottom-0 mt-5 grid grid-cols-2 gap-2 bg-white pt-3 sm:grid-cols-4">
           {["Call", "Send SMS", "Book Consultation", "Assign Staff", "Start Workflow", "Mark Converted", "Close Lead"].map((label) => (
-            <Button key={label} variant={label === "Mark Converted" ? "primary" : "secondary"} onClick={() => label === "Mark Converted" ? onStatus(lead.id, "Converted") : notify(`${label} action simulated.`)}>{label}</Button>
+            <Button key={label} variant={label === "Mark Converted" ? "primary" : label === "Close Lead" ? "danger" : "secondary"} onClick={() => runAction(label)}>{label}</Button>
           ))}
         </div>
       </aside>
@@ -619,41 +653,159 @@ function Conversations() {
     { name: "Nina Alvarez", last: "One side of my face is swelling.", time: "9:03 AM", channel: "Web", status: "Escalated", intent: "Clinical Concern", unread: true, escalation: true },
     { name: "Daniel Brooks", last: "Can you call me back?", time: "10:18 AM", channel: "Phone", status: "AI handling", intent: "Laser Hair Removal", unread: false, escalation: false },
     { name: "Morgan Lee", last: "How long is downtime?", time: "Thu", channel: "SMS", status: "Follow-up", intent: "Chemical Peel", unread: false, escalation: false },
-    { name: "Tessa Morgan", last: "Can someone text me?", time: "Today", channel: "Phone", status: "Needs staff", intent: "Hydrafacial", unread: true, escalation: true }
+    { name: "Tessa Morgan", last: "Can someone text me?", time: "Today", channel: "Phone", status: "Needs staff", intent: "Hydrafacial", unread: true, escalation: true },
+    { name: "Whitney Stone", last: "Thanks, I’m going with another provider.", time: "Wed", channel: "SMS", status: "Closed", intent: "Botox Pricing", unread: false, escalation: false }
   ];
-  const filtered = filter === "All" ? conversations : conversations.filter((c) => c.status.toLowerCase().includes(filter.toLowerCase()) || (filter === "Booked" && c.status === "Booked") || (filter === "Escalated" && c.escalation));
+  const conversationDetails: Record<string, {
+    location: string;
+    badgeTone: "green" | "blue" | "amber" | "red" | "slate" | "purple";
+    messages: string[][];
+    metrics: string[][];
+    tabs: Record<string, string>;
+  }> = {
+    "Sarah Mitchell": {
+      location: "Downtown Austin",
+      badgeTone: "green",
+      messages: [
+        ["Customer", "I’m interested in Botox and wanted to know how much it costs."],
+        ["System", "Intent detected: Botox consultation"],
+        ["AI", "Hi Sarah, thanks for contacting Glow Aesthetics. Botox pricing depends on the number of treatment areas and units recommended. Most clients begin with a complimentary consultation so one of our providers can create an accurate treatment plan. Are you primarily interested in forehead lines, frown lines, or crow’s feet?"],
+        ["Customer", "Forehead and frown lines."],
+        ["System", "Appointment availability checked"],
+        ["AI", "Thank you. I can help you schedule a complimentary consultation. We currently have availability Tuesday at 3:30 PM or Wednesday at 11:00 AM. Which works better for you?"],
+        ["Customer", "Wednesday."],
+        ["AI", "Your consultation is scheduled for Wednesday at 11:00 AM at our Downtown Austin location. I’ve sent a confirmation by text. Is there anything else you would like to know before your visit?"],
+        ["System", "CRM record updated · Reminder workflow activated"]
+      ],
+      metrics: [["Intent", "Botox Consultation"], ["Confidence", "96%"], ["Sentiment", "Positive"], ["Urgency", "Medium"], ["Risk", "Low"], ["Estimated Value", "$740"], ["Appointment Probability", "84%"], ["Next Best Action", "Offer consultation"]],
+      tabs: {
+        Summary: "Customer is interested in forehead and frown-line treatment and accepted an available consultation slot.",
+        Customer: "New customer, Downtown preference, SMS preferred, high purchase intent.",
+        Workflow: "Confirmation sent, CRM updated, reminder workflow active.",
+        Timeline: "Intent detected, availability checked, booking confirmed, CRM updated."
+      }
+    },
+    "Nina Alvarez": {
+      location: "Downtown Austin",
+      badgeTone: "red",
+      messages: [
+        ["Customer", "I had filler yesterday and one side of my face is swelling. Is that normal?"],
+        ["AI", "I’m sorry you’re experiencing this. Because this concerns a recent treatment and may require clinical guidance, I’m transferring your message to a member of the medical team now. If you experience difficulty breathing, severe pain, or rapidly worsening symptoms, seek urgent medical care."],
+        ["System", "Clinical concern detected · AI automation paused · Nurse Coordinator notified"]
+      ],
+      metrics: [["Intent", "Clinical Concern"], ["Confidence", "98%"], ["Sentiment", "Concerned"], ["Urgency", "High"], ["Risk", "Clinical"], ["Estimated Value", "Not shown"], ["Appointment Probability", "Paused"], ["Next Best Action", "Human handoff"]],
+      tabs: {
+        Summary: "Post-treatment concern requires approved staff handoff. AI automation is paused.",
+        Customer: "Existing patient, recent filler visit, urgent clinical callback requested.",
+        Workflow: "Clinical escalation workflow active; Nurse Coordinator SLA under 5 minutes.",
+        Timeline: "Concern detected, restricted response sent, staff notified, audit trail preserved."
+      }
+    },
+    "Daniel Brooks": {
+      location: "North Austin",
+      badgeTone: "blue",
+      messages: [
+        ["System", "Missed Google Ads call detected"],
+        ["AI", "Hi Daniel, this is Ava from Glow Aesthetics. Sorry we missed your call. I can help with body contouring consultation options or have a team member call you back."],
+        ["Customer", "Can you call me back? I’m interested in abdomen and flanks."],
+        ["System", "AI callback placed · Financing question captured"],
+        ["AI", "I can help get you started. We have body contouring consultation availability Thursday at 4:30 PM or Friday at 10:00 AM. Which works better?"]
+      ],
+      metrics: [["Intent", "Body Contouring"], ["Confidence", "91%"], ["Sentiment", "Interested"], ["Urgency", "Medium"], ["Risk", "Low"], ["Estimated Value", "$2,100"], ["Appointment Probability", "72%"], ["Next Best Action", "Confirm callback slot"]],
+      tabs: {
+        Summary: "Missed paid-search call was recovered and moved into AI callback qualification.",
+        Customer: "High-value body contouring lead, North Austin preference, financing question.",
+        Workflow: "Missed Call Recovery started, AI callback completed, staff task queued if no booking.",
+        Timeline: "Call missed, recovery SMS sent, callback requested, treatment areas captured."
+      }
+    },
+    "Morgan Lee": {
+      location: "Downtown Austin",
+      badgeTone: "amber",
+      messages: [
+        ["Customer", "How long is downtime for a chemical peel?"],
+        ["AI", "Downtime depends on peel type and skin goals. A provider can recommend the right option during a complimentary consultation. Are you preparing for an event or looking for general skin refresh?"],
+        ["Customer", "I have travel next month, so I’m not ready to pick a date."],
+        ["System", "Follow-up workflow scheduled · Education message queued"]
+      ],
+      metrics: [["Intent", "Chemical Peel"], ["Confidence", "82%"], ["Sentiment", "Cautious"], ["Urgency", "Low"], ["Risk", "Low"], ["Estimated Value", "$340"], ["Appointment Probability", "48%"], ["Next Best Action", "Send education follow-up"]],
+      tabs: {
+        Summary: "Qualified but not ready to book; follow-up should reduce uncertainty around downtime.",
+        Customer: "Referral lead, travel constraint, needs reassurance before selecting a slot.",
+        Workflow: "Educational SMS sequence active with a booking prompt after 24 hours.",
+        Timeline: "Question answered, readiness constraint captured, follow-up workflow activated."
+      }
+    },
+    "Tessa Morgan": {
+      location: "North Austin",
+      badgeTone: "red",
+      messages: [
+        ["System", "Missed phone inquiry detected"],
+        ["AI", "Hi Tessa, this is Ava from Glow Aesthetics. Sorry we missed you. I can help with Hydrafacial availability or connect you with our front desk."],
+        ["Customer", "Can someone text me? I have a membership question."],
+        ["System", "Human handoff requested · Front-desk task created"]
+      ],
+      metrics: [["Intent", "Hydrafacial Membership"], ["Confidence", "79%"], ["Sentiment", "Neutral"], ["Urgency", "Medium"], ["Risk", "Account question"], ["Estimated Value", "$260"], ["Appointment Probability", "52%"], ["Next Best Action", "Front-desk follow-up"]],
+      tabs: {
+        Summary: "Customer requested staff help for a membership question, so Ava created a front-desk task.",
+        Customer: "Existing Hydrafacial prospect, North Austin, prefers SMS from staff.",
+        Workflow: "AI handling paused for staff handoff; reminder task remains open.",
+        Timeline: "Missed call recovered, membership intent detected, human handoff requested."
+      }
+    },
+    "Whitney Stone": {
+      location: "Downtown Austin",
+      badgeTone: "slate",
+      messages: [
+        ["Customer", "Thanks, I’m going with another provider."],
+        ["AI", "Thanks for letting us know. If you have questions in the future, Glow Aesthetics is happy to help."],
+        ["System", "Lead closed politely · Future nurture tag available"]
+      ],
+      metrics: [["Intent", "Botox Pricing"], ["Confidence", "67%"], ["Sentiment", "Resolved"], ["Urgency", "Low"], ["Risk", "Low"], ["Estimated Value", "$0"], ["Appointment Probability", "Closed"], ["Next Best Action", "No action"]],
+      tabs: {
+        Summary: "Lead chose another provider after pricing comparison and was closed without further automation.",
+        Customer: "Price-sensitive Botox lead, no active appointment intent.",
+        Workflow: "Closed politely; eligible for future seasonal reactivation only.",
+        Timeline: "Pricing compared, customer declined, CRM closed with nurture note."
+      }
+    }
+  };
+  const filtered = filter === "All" ? conversations : conversations.filter((c) => {
+    if (filter === "AI handling") return c.status === "AI handling";
+    if (filter === "Needs staff") return c.status === "Needs staff";
+    if (filter === "Booked") return c.status === "Booked";
+    if (filter === "Escalated") return c.escalation;
+    if (filter === "Closed") return c.status === "Closed";
+    return true;
+  });
   const tabs = ["Summary", "Customer", "Workflow", "Timeline"];
+  const selectedConversation = conversations.find((item) => item.name === selected) ?? conversations[0];
+  const detail = conversationDetails[selectedConversation.name];
+
+  useEffect(() => {
+    if (filtered.length > 0 && !filtered.some((item) => item.name === selected)) {
+      setSelected(filtered[0].name);
+      setTab("Summary");
+    }
+  }, [filter, filtered, selected]);
+
   return (
     <>
       <PageTitle title="AI Conversation Experience" subtitle="Ava handles routine buying intent, updates CRM context, and books a consultation without replacing the front desk." />
       <div className="grid gap-5 xl:grid-cols-[320px_1fr_360px]">
         <Card className="overflow-hidden">
           <div className="border-b border-line p-4"><h2 className="font-semibold">Conversation List</h2><div className="mt-3 flex flex-wrap gap-2">{["All", "AI handling", "Needs staff", "Booked", "Escalated", "Closed"].map((f) => <Button key={f} variant={filter === f ? "primary" : "secondary"} onClick={() => setFilter(f)}>{f}</Button>)}</div></div>
-          <div className="divide-y divide-line">{filtered.map((item) => <button key={item.name} onClick={() => setSelected(item.name)} className={`w-full p-4 text-left transition hover:bg-slate-50 ${selected === item.name ? "bg-indigo-50" : ""}`}><div className="flex items-center justify-between gap-3"><p className="font-semibold">{item.name}</p>{item.unread && <span className="h-2.5 w-2.5 rounded-full bg-indigo-600" />}</div><p className="mt-1 truncate text-sm text-muted">{item.last}</p><div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted"><span>{item.time}</span><span>{item.channel}</span><Badge tone={toneForStatus(item.status)}>{item.status}</Badge>{item.escalation && <ShieldAlert className="h-4 w-4 text-rose-600" />}</div><p className="mt-2 text-xs font-medium text-slate-700">{item.intent}</p></button>)}</div>
+          <div className="divide-y divide-line">{filtered.length === 0 ? <div className="p-5 text-sm text-muted">No conversations match this filter.</div> : filtered.map((item) => <button key={item.name} onClick={() => { setSelected(item.name); setTab("Summary"); }} className={`w-full p-4 text-left transition hover:bg-slate-50 ${selected === item.name ? "bg-indigo-50" : ""}`}><div className="flex items-center justify-between gap-3"><p className="font-semibold">{item.name}</p>{item.unread && <span className="h-2.5 w-2.5 rounded-full bg-indigo-600" />}</div><p className="mt-1 truncate text-sm text-muted">{item.last}</p><div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted"><span>{item.time}</span><span>{item.channel}</span><Badge tone={toneForStatus(item.status)}>{item.status}</Badge>{item.escalation && <ShieldAlert className="h-4 w-4 text-rose-600" />}</div><p className="mt-2 text-xs font-medium text-slate-700">{item.intent}</p></button>)}</div>
         </Card>
         <Card className="p-5">
-          <div className="mb-4 flex items-center justify-between gap-3"><div><h2 className="font-semibold">{selected}</h2><p className="text-sm text-muted">SMS · Downtown Austin · Ava active</p></div><Badge tone={selected === "Nina Alvarez" ? "red" : "green"}>{selected === "Nina Alvarez" ? "Escalated" : "Booked"}</Badge></div>
-          {selected === "Nina Alvarez" ? <Chat messages={[
-            ["Customer", "I had filler yesterday and one side of my face is swelling. Is that normal?"],
-            ["AI", "I’m sorry you’re experiencing this. Because this concerns a recent treatment and may require clinical guidance, I’m transferring your message to a member of the medical team now. If you experience difficulty breathing, severe pain, or rapidly worsening symptoms, seek urgent medical care."],
-            ["System", "Clinical concern detected · AI automation paused · Nurse Coordinator notified"]
-          ]} /> : <Chat messages={[
-            ["Customer", "I’m interested in Botox and wanted to know how much it costs."],
-            ["System", "Intent detected: Botox consultation"],
-            ["AI", "Hi Sarah, thanks for contacting Glow Aesthetics. Botox pricing depends on the number of treatment areas and units recommended. Most clients begin with a complimentary consultation so one of our providers can create an accurate treatment plan. Are you primarily interested in forehead lines, frown lines, or crow’s feet?"],
-            ["Customer", "Forehead and frown lines."],
-            ["System", "Appointment availability checked"],
-            ["AI", "Thank you. I can help you schedule a complimentary consultation. We currently have availability Tuesday at 3:30 PM or Wednesday at 11:00 AM. Which works better for you?"],
-            ["Customer", "Wednesday."],
-            ["AI", "Your consultation is scheduled for Wednesday at 11:00 AM at our Downtown Austin location. I’ve sent a confirmation by text. Is there anything else you would like to know before your visit?"],
-            ["System", "CRM record updated · Reminder workflow activated"]
-          ]} />}
+          <div className="mb-4 flex items-center justify-between gap-3"><div><h2 className="font-semibold">{selectedConversation.name}</h2><p className="text-sm text-muted">{selectedConversation.channel} · {detail.location} · {selectedConversation.status === "Closed" ? "Closed" : selectedConversation.escalation ? "Staff active" : "Ava active"}</p></div><Badge tone={detail.badgeTone}>{selectedConversation.status}</Badge></div>
+          <Chat messages={detail.messages} />
         </Card>
         <Card className="p-5">
           <h2 className="font-semibold">AI Operational Panel</h2>
-          <div className="mt-4 grid grid-cols-2 gap-3">{[["Intent", selected === "Nina Alvarez" ? "Clinical Concern" : "Botox Consultation"], ["Confidence", selected === "Nina Alvarez" ? "98%" : "96%"], ["Sentiment", selected === "Nina Alvarez" ? "Concerned" : "Positive"], ["Urgency", selected === "Nina Alvarez" ? "High" : "Medium"], ["Risk", selected === "Nina Alvarez" ? "Clinical" : "Low"], ["Estimated Value", selected === "Nina Alvarez" ? "$850" : "$740"], ["Appointment Probability", selected === "Nina Alvarez" ? "Paused" : "84%"], ["Next Best Action", selected === "Nina Alvarez" ? "Human handoff" : "Offer consultation"]].map(([label, value]) => <Info key={label} label={label} value={value} />)}</div>
+          <div className="mt-4 grid grid-cols-2 gap-3">{detail.metrics.map(([label, value]) => <Info key={label} label={label} value={value} />)}</div>
           <div className="mt-4 flex flex-wrap gap-2">{tabs.map((t) => <Button key={t} variant={tab === t ? "primary" : "secondary"} onClick={() => setTab(t)}>{t}</Button>)}</div>
-          <div className="mt-4 rounded-md bg-slate-50 p-4 text-sm leading-6">{tab === "Summary" && "Customer is interested in forehead and frown-line treatment and accepted an available consultation slot."}{tab === "Customer" && "New customer, Downtown preference, SMS preferred, high purchase intent."}{tab === "Workflow" && "Confirmation sent, CRM updated, reminder workflow active."}{tab === "Timeline" && "Intent detected, availability checked, booking confirmed, CRM updated."}</div>
+          <div className="mt-4 rounded-md bg-slate-50 p-4 text-sm leading-6">{detail.tabs[tab]}</div>
         </Card>
       </div>
       <Escalation />
